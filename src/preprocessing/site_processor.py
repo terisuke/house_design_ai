@@ -3,7 +3,7 @@ import numpy as np
 from skimage import feature
 
 class SiteProcessor:
-    def __init__(self, target_size=(256, 256), canny_sigma=1.0):
+    def __init__(self, target_size=(1024, 1024), canny_sigma=1.0):
         self.target_size = target_size
         # Cannyのsigmaを外部から指定できるように
         self.canny_sigma = canny_sigma

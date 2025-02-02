@@ -4,7 +4,7 @@ AI-powered house design generator from site plans.
 
 ## Project Structure
 
-```
+```plaintext
 house-design-ai/
 ├── data/
 │   ├── raw/

@@ -23,7 +23,7 @@ def main():
 
         if file_type == "application/pdf":
             pdf_bytes = uploaded_file.read()
-            pages = convert_from_bytes(pdf_bytes, dpi=100)
+            pages = convert_from_bytes(pdf_bytes, dpi=300)
             page = pages[0]
             image = page
             image_array = np.array(page)
