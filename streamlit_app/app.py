@@ -3,7 +3,6 @@ import numpy as np
 from PIL import Image
 import os
 import sys
-import cv2
 
 from pdf2image import convert_from_bytes
 
@@ -25,7 +24,7 @@ def main():
 
         if file_type == "application/pdf":
             pdf_bytes = uploaded_file.read()
-            pages = convert_from_bytes(pdf_bytes, dpi=1000)
+            pages = convert_from_bytes(pdf_bytes, dpi=300)
             page = pages[0]
             image = page
             image_array = np.array(page)
@@ -50,21 +49,12 @@ def main():
 
         # 3) ノイズ除去 (min_area=1) + Morph(Close only)
         cleaned_float = processor.remove_small_components(edges_float, min_area=1)
-        cleaned_float = processor.morph_process(cleaned_float, kernel_size=7, op_type="close")
-        cleaned_float = processor.morph_process(cleaned_float, kernel_size=7, op_type="close")
-        # 文字っぽい成分除去 (閾値を緩和)
-        # cleaned_float = processor.remove_textlike_components(cleaned_float, min_aspect_ratio=300.0, max_fill_ratio=0.0001)
+        cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
+        # 必要なら更にもう一度 close
+        cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
         cleaned_uint8 = (cleaned_float * 255).astype(np.uint8)
 
         # 4) Hough変換で直線抽出
-        lines = cv2.HoughLinesP(
-            edges_uint8,
-            rho=0.5,            # 分解能を細かく
-            theta=np.pi / 360,  # 分解能を細かく
-            threshold=1,        # 投票数を限界まで下げる
-            minLineLength=1,    # 最短の線分も検出
-            maxLineGap=200      # 非常に大きな隙間を許容
-        )
         lines_img = processor.detect_lines(cleaned_float)
 
         with col3:

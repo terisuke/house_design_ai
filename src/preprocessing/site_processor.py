@@ -25,24 +25,19 @@ class SiteProcessor:
         else:
             gray = image
 
-        # グレースケール化後にCLAHEを適用
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        gray = clahe.apply(gray)
-
-        # シャープ化
-        laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-        sharp = cv2.convertScaleAbs(laplacian)
-
         # 指定サイズにリサイズ (A3比率: 1680x1188 など)
-        resized = cv2.resize(sharp, self.target_size)
+        resized = cv2.resize(gray, self.target_size)
 
         # 0～1に正規化
         resized_f = resized / 255.0
 
-        # Sobelフィルタを使用してエッジを検出
-        sobelx = cv2.Sobel(resized_f, cv2.CV_64F, 1, 0, ksize=5)
-        sobely = cv2.Sobel(resized_f, cv2.CV_64F, 0, 1, ksize=5)
-        edges = np.sqrt(sobelx**2 + sobely**2)
+        # Cannyエッジ (閾値を非常に低めに設定)
+        edges = feature.canny(
+            resized_f,
+            sigma=self.canny_sigma,
+            low_threshold=0.02,  # 閾値を大幅に下げて感度アップ
+            high_threshold=0.2
+        )
 
         # bool -> float32 (0.0/1.0)
         edges_float = edges.astype(np.float32)
@@ -63,17 +58,7 @@ class SiteProcessor:
         for i in range(1, num_labels):
             area = stats[i, cv2.CC_STAT_AREA]
             if area >= min_area:
-                # 文字っぽい成分を除外する判定を追加
-                x, y, bw, bh = stats[i, cv2.CC_STAT_LEFT:cv2.CC_STAT_LEFT+4]
-                if bw == 0 or bh == 0:
-                    continue
-                    
-                aspect = max(bw, bh) / float(min(bw, bh))  # 縦横比(大きい方/小さい方)
-                fill_ratio = area / (bw * bh)              # 塗りつぶし率
-
-                # 線分っぽいもの(縦横比が2.0以上 & 密度が0.6以下)のみ残す
-                if aspect >= 300.0 and fill_ratio <= 0.0001:
-                    cleaned[labels == i] = 255
+                cleaned[labels == i] = 255
 
         cleaned_float = (cleaned > 0).astype(np.float32)
         return cleaned_float
@@ -124,32 +109,3 @@ class SiteProcessor:
                 cv2.line(lines_img, (x1, y1), (x2, y2), (255, 255, 255), 1)
 
         return lines_img
-
-    def remove_textlike_components(self, edges_float: np.ndarray, min_aspect_ratio: float = 1.5, max_fill_ratio: float = 0.7) -> np.ndarray:
-        """
-        文字っぽい成分を除去する。文字判定を弱める => 線とみなす範囲を広げる
-        Args:
-            edges_float: (0.0 or 1.0)の2値画像
-            min_aspect_ratio: 除去する最小縦横比
-            max_fill_ratio: 除去する最大塗りつぶし率
-        Returns: 除去後の float32(0.0 or 1.0)
-        """
-        edges_uint8 = (edges_float * 255).astype(np.uint8)
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(edges_uint8, connectivity=8)
-
-        cleaned = np.zeros_like(edges_uint8)
-        for i in range(1, num_labels):
-            area = stats[i, cv2.CC_STAT_AREA]
-            x, y, bw, bh = stats[i, cv2.CC_STAT_LEFT:cv2.CC_STAT_LEFT+4]
-            if bw == 0 or bh == 0:
-                continue
-
-            aspect = max(bw, bh) / float(min(bw, bh))  # 縦横比(大きい方/小さい方)
-            fill_ratio = area / (bw * bh)              # 塗りつぶし率
-
-            # 「線」とみなす条件を調整
-            if aspect >= min_aspect_ratio and fill_ratio <= max_fill_ratio:
-                cleaned[labels == i] = 255
-
-        cleaned_float = (cleaned > 0).astype(np.float32)
-        return cleaned_float
