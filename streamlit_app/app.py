@@ -47,14 +47,18 @@ def main():
             st.subheader("エッジ抽出")
             st.image(edges_uint8, use_column_width=True)
 
-        # 3) ノイズ除去 (min_area=1) + Morph(Close only)
-        cleaned_float = processor.remove_small_components(edges_float, min_area=1)
-        cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
+        # 3) ノイズ除去 (min_area=5) + Morph(Close)
+        cleaned_float = processor.remove_small_components(edges_float, min_area=5)
+        cleaned_float = processor.morph_process(cleaned_float, kernel_size=5, op_type="close")
         # 必要なら更にもう一度 close
-        cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
+        cleaned_float = processor.morph_process(cleaned_float, kernel_size=5, op_type="close")
+
+        # 4) 文字除去
+        cleaned_float = processor.remove_textlike_components(cleaned_float)
+
         cleaned_uint8 = (cleaned_float * 255).astype(np.uint8)
 
-        # 4) Hough変換で直線抽出
+        # 5) Hough変換で直線抽出
         lines_img = processor.detect_lines(cleaned_float)
 
         with col3:
@@ -63,8 +67,8 @@ def main():
 
         # 中間結果を表示
         st.write("---")
-        st.write("### ノイズ除去 + モルフォロジー後")
-        st.image(cleaned_uint8, caption="Closeのみ (iterations=2)", use_column_width=True)
+        st.write("### ノイズ除去 + モルフォロジー + 文字除去後")
+        st.image(cleaned_uint8, caption="最終2値画像", use_column_width=True)
 
 if __name__ == "__main__":
     main()
