@@ -38,14 +38,14 @@ def main():
         # 1) オリジナル画像
         with col1:
             st.subheader("土地図")
-            st.image(image, use_column_width=True)
+            st.image(image, use_container_width=True)
 
         # 2) エッジ抽出
         edges_float = processor.process(image_array)
         edges_uint8 = (edges_float * 255).astype(np.uint8)
         with col2:
             st.subheader("エッジ抽出")
-            st.image(edges_uint8, use_column_width=True)
+            st.image(edges_uint8, use_container_width=True)
 
         # 3) ノイズ除去 (min_area=5) + Morph(Close)
         cleaned_float = processor.remove_small_components(edges_float, min_area=5)
@@ -63,12 +63,12 @@ def main():
 
         with col3:
             st.subheader("直線抽出")
-            st.image(lines_img, use_column_width=True)
+            st.image(lines_img, use_container_width=True)
 
         # 中間結果を表示
         st.write("---")
         st.write("### ノイズ除去 + モルフォロジー + 文字除去後")
-        st.image(cleaned_uint8, caption="最終2値画像", use_column_width=True)
+        st.image(cleaned_uint8, caption="最終2値画像", use_container_width=True)
 
 if __name__ == "__main__":
     main()
