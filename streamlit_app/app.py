@@ -14,8 +14,9 @@ def main():
     st.title("住宅デザインAIジェネレータ")
     st.write("土地図をアップロードすると、エッジ検出＆線分抽出を行います。")
 
-    # SiteProcessorを sigma=1.0 & target_size=(1024, 1024) に変更
-    processor = SiteProcessor(target_size=(1024, 1024), canny_sigma=1.0)
+    # A3比率(約1.414)を維持するため、(840, 594)に変更
+    # sigma=1.0のまま
+    processor = SiteProcessor(target_size=(1680, 1188), canny_sigma=1.0)
 
     uploaded_file = st.file_uploader("土地図をアップロード", type=["pdf", "png", "jpg", "jpeg"])
 
@@ -33,22 +34,13 @@ def main():
             image = Image.open(uploaded_file)
             image_array = np.array(image)
 
-        # 下部15%をカットして説明部分を除外
-        h = image_array.shape[0]
-        cutoff = int(h * 0.85)
-        # 下15%を除外
-        image_array = image_array[:cutoff, :]
-
-        # カット後の画像をPIL化
-        cut_pil = Image.fromarray(image_array)
-
         # レイアウト: 3カラム
         col1, col2, col3 = st.columns(3)
 
         # 1) オリジナル画像
         with col1:
-            st.subheader("土地図（下部カット）")
-            st.image(cut_pil, use_column_width=True)
+            st.subheader("土地図")
+            st.image(image, use_column_width=True)
 
         # 2) エッジ抽出
         edges_float = processor.process(image_array)

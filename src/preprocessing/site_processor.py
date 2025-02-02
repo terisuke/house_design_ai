@@ -3,11 +3,12 @@ import numpy as np
 from skimage import feature
 
 class SiteProcessor:
-    def __init__(self, target_size=(1024, 1024), canny_sigma=1.0):
+    def __init__(self, target_size=(1680, 1188), canny_sigma=1.0):
         """
         コンストラクタ
         Args:
-            target_size: リサイズ先の画像サイズ (width, height)
+            target_size: リサイズ先の画像サイズ (width, height) 
+                        A3比率(1.414)を維持した例: (840, 594)
             canny_sigma: Cannyエッジ検出のsigmaパラメータ
         """
         self.target_size = target_size
@@ -24,14 +25,16 @@ class SiteProcessor:
         else:
             gray = image
 
-        # 指定サイズにリサイズ
+        # 指定サイズにリサイズ (A3比率: 1680x1188 など)
         resized = cv2.resize(gray, self.target_size)
 
         # 0～1に正規化
         resized_f = resized / 255.0
 
         # Cannyエッジ (sigmaでエッジの繊細さを調整)
+        # 必要に応じて low_threshold / high_threshold を指定するとさらに精度UP
         edges = feature.canny(resized_f, sigma=self.canny_sigma)
+        # 例: edges = feature.canny(resized_f, sigma=self.canny_sigma, low_threshold=0.05, high_threshold=0.15)
 
         # bool -> float32 (0.0/1.0)
         edges_float = edges.astype(np.float32)
@@ -88,13 +91,14 @@ class SiteProcessor:
         """
         edges_uint8 = (edges_float * 255).astype(np.uint8)
 
+        # パラメータをさらに緩和して感度を高める
         lines = cv2.HoughLinesP(
             edges_uint8,
             rho=1,
             theta=np.pi / 180,
-            threshold=60,      # 投票数 (小さくするほど敏感)
-            minLineLength=30,  # 検出される最小線分長
-            maxLineGap=20      # 線分間の最大ギャップ
+            threshold=30,      # 60 -> 40に下げ
+            minLineLength=10,  # 30 -> 20に下げ (短い線もOK)
+            maxLineGap=40      # 20 -> 30に拡大 (線分間の隙間を許容)
         )
 
         h, w = edges_uint8.shape
