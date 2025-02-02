@@ -31,21 +31,24 @@ class SiteProcessor:
         # 0～1に正規化
         resized_f = resized / 255.0
 
-        # Cannyエッジ (sigmaでエッジの繊細さを調整)
-        # 必要に応じて low_threshold / high_threshold を指定するとさらに精度UP
-        edges = feature.canny(resized_f, sigma=self.canny_sigma)
-        # 例: edges = feature.canny(resized_f, sigma=self.canny_sigma, low_threshold=0.05, high_threshold=0.15)
+        # Cannyエッジ (閾値を非常に低めに設定)
+        edges = feature.canny(
+            resized_f,
+            sigma=self.canny_sigma,
+            low_threshold=0.02,  # 閾値を大幅に下げて感度アップ
+            high_threshold=0.2
+        )
 
         # bool -> float32 (0.0/1.0)
         edges_float = edges.astype(np.float32)
         return edges_float
 
-    def remove_small_components(self, edges_float: np.ndarray, min_area=5) -> np.ndarray:
+    def remove_small_components(self, edges_float: np.ndarray, min_area=1) -> np.ndarray:
         """
         小さい連結成分を除去してノイズ低減
         Args:
             edges_float: (0.0 or 1.0)の2値画像
-            min_area: 除去する最小面積閾値
+            min_area: 除去する最小面積閾値 (1にして実質スキップ)
         Returns: 除去後の float32(0.0 or 1.0)
         """
         edges_uint8 = (edges_float * 255).astype(np.uint8)
@@ -60,24 +63,20 @@ class SiteProcessor:
         cleaned_float = (cleaned > 0).astype(np.float32)
         return cleaned_float
 
-    def morph_process(self, edges_float: np.ndarray, kernel_size=3, op_type="open") -> np.ndarray:
+    def morph_process(self, edges_float: np.ndarray, kernel_size=3, op_type="close") -> np.ndarray:
         """
-        モルフォロジー演算 (open / close) でノイズ除去や線の補強
+        モルフォロジー演算 (close) で線の隙間を埋める
         Args:
             edges_float: (0.0 or 1.0)の2値画像
             kernel_size: カーネルの大きさ
-            op_type: 'open' or 'close'
+            op_type: 'close' のみ使用
         Returns: 処理後の float32(0.0 or 1.0)
         """
         edges_uint8 = (edges_float * 255).astype(np.uint8)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
 
-        if op_type == "open":
-            # オープニング: 小さな白領域を消す
-            morphed = cv2.morphologyEx(edges_uint8, cv2.MORPH_OPEN, kernel, iterations=1)
-        else:
-            # クロージング: 白領域の隙間を埋める
-            morphed = cv2.morphologyEx(edges_uint8, cv2.MORPH_CLOSE, kernel, iterations=1)
+        # クロージングのみ実施して隙間を強めに埋める
+        morphed = cv2.morphologyEx(edges_uint8, cv2.MORPH_CLOSE, kernel, iterations=2)
 
         morphed_float = (morphed > 0).astype(np.float32)
         return morphed_float
@@ -91,14 +90,14 @@ class SiteProcessor:
         """
         edges_uint8 = (edges_float * 255).astype(np.uint8)
 
-        # パラメータをさらに緩和して感度を高める
+        # パラメータを大幅に緩和して感度を最大限に高める
         lines = cv2.HoughLinesP(
             edges_uint8,
             rho=1,
             theta=np.pi / 180,
-            threshold=30,      # 60 -> 40に下げ
-            minLineLength=10,  # 30 -> 20に下げ (短い線もOK)
-            maxLineGap=40      # 20 -> 30に拡大 (線分間の隙間を許容)
+            threshold=5,       # 投票数を大幅に下げる
+            minLineLength=5,   # 短い線分も検出
+            maxLineGap=100     # 大きな隙間を許容
         )
 
         h, w = edges_uint8.shape

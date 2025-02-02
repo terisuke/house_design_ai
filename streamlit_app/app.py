@@ -14,8 +14,7 @@ def main():
     st.title("住宅デザインAIジェネレータ")
     st.write("土地図をアップロードすると、エッジ検出＆線分抽出を行います。")
 
-    # A3比率(約1.414)を維持するため、(840, 594)に変更
-    # sigma=1.0のまま
+    # target_size=(1680, 1188), canny_sigma=1.0 はそのまま
     processor = SiteProcessor(target_size=(1680, 1188), canny_sigma=1.0)
 
     uploaded_file = st.file_uploader("土地図をアップロード", type=["pdf", "png", "jpg", "jpeg"])
@@ -25,7 +24,6 @@ def main():
 
         if file_type == "application/pdf":
             pdf_bytes = uploaded_file.read()
-            # DPI=300で高解像度変換
             pages = convert_from_bytes(pdf_bytes, dpi=300)
             page = pages[0]
             image = page
@@ -49,9 +47,10 @@ def main():
             st.subheader("エッジ抽出")
             st.image(edges_uint8, use_column_width=True)
 
-        # 3) ノイズ除去 + モルフォロジー(Open→Close)
-        cleaned_float = processor.remove_small_components(edges_float, min_area=5)
-        cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="open")
+        # 3) ノイズ除去 (min_area=1) + Morph(Close only)
+        cleaned_float = processor.remove_small_components(edges_float, min_area=1)
+        cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
+        # 必要なら更にもう一度 close
         cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
         cleaned_uint8 = (cleaned_float * 255).astype(np.uint8)
 
@@ -65,7 +64,7 @@ def main():
         # 中間結果を表示
         st.write("---")
         st.write("### ノイズ除去 + モルフォロジー後")
-        st.image(cleaned_uint8, caption="Open→Close処理後の2値画像", use_column_width=True)
+        st.image(cleaned_uint8, caption="Closeのみ (iterations=2)", use_column_width=True)
 
 if __name__ == "__main__":
     main()
