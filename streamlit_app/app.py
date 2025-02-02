@@ -14,7 +14,8 @@ from src.preprocessing.site_processor import SiteProcessor
 
 def main():
     st.title("住宅デザインAIジェネレータ")
-    st.write("このアプリは、土地図をアップロードすると、その土地図をもとに住宅デザインを生成します。今は土地図のエッジを抽出しています。")
+    st.write("このアプリは、土地図をアップロードすると、その土地図をもとに住宅デザインを生成します。")
+    st.write("今は土地図のエッジを抽出しています。")
 
     processor = SiteProcessor()
 
