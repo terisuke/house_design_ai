@@ -52,6 +52,8 @@ def main():
         cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
         # 必要なら更にもう一度 close
         cleaned_float = processor.morph_process(cleaned_float, kernel_size=3, op_type="close")
+        # 文字っぽい成分除去
+        cleaned_float = processor.remove_textlike_components(cleaned_float, min_aspect_ratio=4.0, max_fill_ratio=0.4)
         cleaned_uint8 = (cleaned_float * 255).astype(np.uint8)
 
         # 4) Hough変換で直線抽出

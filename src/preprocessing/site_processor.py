@@ -58,7 +58,17 @@ class SiteProcessor:
         for i in range(1, num_labels):
             area = stats[i, cv2.CC_STAT_AREA]
             if area >= min_area:
-                cleaned[labels == i] = 255
+                # 文字っぽい成分を除外する判定を追加
+                x, y, bw, bh = stats[i, cv2.CC_STAT_LEFT:cv2.CC_STAT_LEFT+4]
+                if bw == 0 or bh == 0:
+                    continue
+                    
+                aspect = max(bw, bh) / float(min(bw, bh))  # 縦横比(大きい方/小さい方)
+                fill_ratio = area / (bw * bh)              # 塗りつぶし率
+
+                # 線分っぽいもの(縦横比が4.0以上 & 密度が0.4以下)のみ残す
+                if aspect >= 4.0 and fill_ratio <= 0.4:
+                    cleaned[labels == i] = 255
 
         cleaned_float = (cleaned > 0).astype(np.float32)
         return cleaned_float
@@ -109,3 +119,32 @@ class SiteProcessor:
                 cv2.line(lines_img, (x1, y1), (x2, y2), (255, 255, 255), 1)
 
         return lines_img
+
+    def remove_textlike_components(self, edges_float: np.ndarray, min_aspect_ratio: float, max_fill_ratio: float) -> np.ndarray:
+        """
+        文字っぽい成分を除去する
+        Args:
+            edges_float: (0.0 or 1.0)の2値画像
+            min_aspect_ratio: 除去する最小縦横比
+            max_fill_ratio: 除去する最大塗りつぶし率
+        Returns: 除去後の float32(0.0 or 1.0)
+        """
+        edges_uint8 = (edges_float * 255).astype(np.uint8)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(edges_uint8, connectivity=8)
+
+        cleaned = np.zeros_like(edges_uint8)
+        for i in range(1, num_labels):
+            area = stats[i, cv2.CC_STAT_AREA]
+            x, y, bw, bh = stats[i, cv2.CC_STAT_LEFT:cv2.CC_STAT_LEFT+4]
+            if bw == 0 or bh == 0:
+                continue
+
+            aspect = max(bw, bh) / float(min(bw, bh))  # 縦横比(大きい方/小さい方)
+            fill_ratio = area / (bw * bh)              # 塗りつぶし率
+
+            # 文字っぽい成分を除外する
+            if aspect < min_aspect_ratio or fill_ratio > max_fill_ratio:
+                cleaned[labels == i] = 255
+
+        cleaned_float = (cleaned > 0).astype(np.float32)
+        return cleaned_float
